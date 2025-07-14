@@ -1,0 +1,11 @@
+1. AI Voice synthesis, elevenlabs looks easy to use. But would still need to use an LLM to reformulate the users memories into prompts.
+- Could it be possible to record the elevenlabs voice, then just repeat it? A lot of the voices needed 
+
+2. Grounding exit sequence. Circle inflating deflating, should be easy. 
+
+3. The target image selection.
+
+4. Add the queue in to memory
+
+5. Add linked list creation of audio transcript of users noticing.
+
