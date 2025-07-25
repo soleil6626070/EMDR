@@ -1,0 +1,26 @@
+{
+  "session_id": "session_20250725_072524",
+  "created": "20250725_072524",
+  "status": "completed",
+  "audio_files": {
+    "1": {
+      "filename": "cycle_1_audio.wav",
+      "status": "transcribed",
+      "created": 1753424739.6602654,
+      "transcribed_at": 1753427131.3260734
+    },
+    "2": {
+      "filename": "cycle_2_audio.wav",
+      "status": "transcribed",
+      "created": 1753424757.774643,
+      "transcribed_at": 1753427131.4594762
+    },
+    "3": {
+      "filename": "cycle_3_audio.wav",
+      "status": "transcribed",
+      "created": 1753424775.1986914,
+      "transcribed_at": 1753427131.577724
+    }
+  },
+  "completed_at": 1753424778.2310207
+}
