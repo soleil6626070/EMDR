@@ -1,3 +1,29 @@
+import pygame
+import sys
+import time
+import math
+import threading
+import os
+import json
+from pathlib import Path
+import requests
+import io
+from dotenv import load_dotenv
+import wave
+import pyaudio
+import tempfile
+import whisper
+import torch
+import queue
+from datetime import datetime
+import numpy as np
+from scipy.io import wavfile
+import scipy.signal
+
+import openai
+# import anthropic
+
+# Utility functions
 def view_session_responses(session_path):
     """View responses from a completed session"""
     responses_path = os.path.join(session_path, "responses.json")
@@ -60,37 +86,13 @@ def export_session_to_text(session_path, output_file):
             
     return True
 
-# ===def get_existing_target_files():
+def get_existing_target_files():
     """Get a list of existing target image files"""
     files = []
     for file in os.listdir('.'):
         if file.startswith('Target_Image_') and file.endswith('.txt'):
             files.append(file)
     return sorted(files)
-import pygame
-import sys
-import time
-import math
-import threading
-import os
-import json
-from pathlib import Path
-import requests
-import io
-from dotenv import load_dotenv
-import wave
-import pyaudio
-import tempfile
-import whisper
-import torch
-import queue
-from datetime import datetime
-import numpy as np
-from scipy.io import wavfile
-import scipy.signal
-
-import openai
-# import anthropic
 
 # ===== Linked List Implementation for Processing Responses =====
 class ResponseNode:
@@ -438,10 +440,10 @@ MARGIN_CM = 1.0                     # from screen edge
 
 # Animation parameters
 OSCILLATIONS_PER_SECOND = 1.2  # 1.2Hz from minor online research
-OSCILLATION_DURATION = 30.0    # Cycle duration - Ask therapist
+OSCILLATION_DURATION = 3.0    # Cycle duration - Ask therapist
 
 # Session parameters
-TOTAL_CYCLES = 10
+TOTAL_CYCLES = 3
 
 # Text parameters
 PROMPT_TEXT = "What did you notice?"
