@@ -1,0 +1,233 @@
+# EMDR Therapy Program - Flowchart Specification
+
+## Program Overview
+- **Purpose**: EMDR (Eye Movement Desensitization and Reprocessing) therapy application
+- **Main Features**: Target identification, audio-guided therapy, visual oscillation tracking, LLM-generated cue-in scripts
+
+---
+## 1. INITIALIZATION & SETUP
+
+### 1.1 Program Start
+- Load environment variables for API keys (OpenAI, ElevenLabs)
+- Initialize pygame
+- Set fullscreen display mode
+- Hide mouse cursor
+- Calculate screen dimensions and margins
+- Initialize audio handler
+- Initialize LLM handler
+- Set initial state to "menu"
+
+### 1.2 Audio Setup
+- Check/create audio directory
+- Generate audio files for 5 target questions if not existing
+- Generate "What did you notice?" audio if not existing
+- Use ElevenLabs API for text-to-speech conversion
+
+---
+
+## 2. MAIN MENU STATE
+
+### 2.1 Display Options
+- Show title: "EMDR Therapy Program"
+- Option 1: "Identify Target Image"
+- Option 2: "Begin Processing"
+- Show navigation instructions
+
+### 2.2 User Input Handling
+- Press '1' → Go to Target Identification
+- Press '2' → Go to Target Selection (if targets exist)
+- Arrow keys → Navigate menu options
+- Spacebar → Select highlighted option
+- ESC → Exit program
+
+---
+
+## 3. TARGET IDENTIFICATION FLOW
+
+### 3.1 Target Identification State
+- Play audio for current question (1 of 5)
+- Questions cover: visual, auditory, smell, physical sensations, body feelings
+- Wait for audio to complete
+- Transition to text input state
+
+### 3.2 Text Input State
+- Display current question text
+- Show white input box with black text
+- Accept user typed response
+- Show cursor when active
+- ENTER → Save response and move to next question
+- BACKSPACE → Delete last character
+- After 5 questions → Save responses to file and return to menu
+
+### 3.3 File Saving
+- Create filename: "Target_Image_X.txt" (incrementing X)
+- Save all 5 responses with labels
+- Format: Label: Response for each category
+
+---
+
+## 4. PROCESSING FLOW
+
+### 4.1 Target Selection State
+- Display list of available target files
+- Allow navigation with arrow keys
+- Spacebar → Select target and proceed to cue-in
+- ESC → Return to menu
+- If no targets exist → Show message and return option
+
+### 4.2 Cue-In State
+- Load selected target file responses
+- Generate cue-in script using LLM (OpenAI GPT-3.5)
+- Convert responses from first-person to second-person
+- Generate audio for cue-in script
+- Play cue-in audio
+- Display first 3 lines of script on screen
+- When audio complete → Start oscillation
+
+### 4.3 Oscillation State
+- Display red circle (2cm diameter)
+- Oscillate horizontally at 1.2Hz using sine wave
+- Continue for 30 seconds
+- Circle moves from left margin to right margin
+- After 30 seconds → Transition to waiting state
+
+### 4.4 Waiting State
+- Play "What did you notice?" audio
+- Display text: "What did you notice?"
+- Display: "(tap spacebar to continue)"
+- Wait for user input
+- Spacebar → Move to feedback state
+
+### 4.5 Feedback State
+- Display: "Notice that"
+- Show for 2 seconds
+- After 2 seconds → Start fading
+
+### 4.6 Fading State
+- Fade out "Notice that" text over 1 second
+- Alpha goes from 255 to 0
+- After fade complete → Check cycle count
+- If cycles < 10 → Return to oscillation state
+- If cycles = 10 → Return to main menu
+
+---
+
+## 5. AUDIO HANDLING
+
+### 5.1 Audio Generation
+- Use ElevenLabs API with Rachel voice
+- Generate MP3 files for all prompts
+- Store in audio_files directory
+- Skip generation if files already exist
+
+### 5.2 Audio Playback
+- Use pygame mixer for playback
+- Track current playing status
+- Stop audio when returning to menu
+- Handle playback errors gracefully
+
+---
+
+## 6. LLM INTEGRATION
+
+### 6.1 Cue-In Script Generation
+- Format user responses into prompt
+- Use GPT-3.5-turbo model
+- Convert first-person memories to second-person present tense
+- Create therapeutic, gentle language
+- Start with breathing instruction
+- Return cohesive script for EMDR processing
+
+---
+
+## 7. VISUAL ELEMENTS
+
+### 7.1 Colors
+- Background: Dark grey (80, 80, 80)
+- Circle: Red (255, 0, 0)
+- Text: White (255, 255, 255)
+- Input box: White background, black text
+- Menu highlight: Yellow (255, 255, 0)
+
+### 7.2 Layout
+- All text centered horizontally
+- Circle moves horizontally at screen center
+- 1cm margins from screen edges
+- Input box: 800x50 pixels
+
+---
+
+## 8. PARAMETERS & SETTINGS
+
+### 8.1 Timing
+- Oscillation frequency: 1.2 Hz
+- Oscillation duration: 30 seconds per cycle
+- Total cycles: 10
+- Feedback display: 2 seconds
+- Fade duration: 1 second
+
+### 8.2 Text Settings
+- Main font size: 36
+- Small font size: 24
+- Menu font size: 48
+- Max input length: 1000 characters
+
+---
+
+## 9. STATE MACHINE FLOW
+
+```
+MENU ─┬─[1]→ TARGET_IDENTIFICATION → TEXT_INPUT → (loop 5x) → MENU
+      │
+      └─[2]→ TARGET_SELECTION → CUE_IN → OSCILLATING → WAITING → FEEDBACK → FADING ─┐
+                                            ↑                                           │
+                                            └───────────(if cycles < 10)────────────────┘
+                                                         (if cycles = 10) → MENU
+```
+
+---
+
+## 10. ERROR HANDLING
+
+### 10.1 API Failures
+- If audio generation fails → Continue without audio
+- If LLM fails → Return error message
+- If file operations fail → Print error and continue
+
+### 10.2 User Interruption
+- ESC key → Return to menu from any state
+- ESC at menu → Exit program
+- Stop audio when changing states
+
+---
+
+## 11. FILE STRUCTURE
+
+### 11.1 Generated Files
+- Target_Image_X.txt: Stored target responses
+- audio_files/question_1-5.mp3: Target identification questions
+- audio_files/what_noticed.mp3: Processing prompt
+- audio_files/cue_in_script.mp3: Generated cue-in audio
+
+### 11.2 Dependencies
+- pygame: Display and audio
+- openai: LLM integration
+- requests: API calls
+- python-dotenv: Environment variables
+
+---
+
+## EDIT INSTRUCTIONS
+
+To modify this program:
+1. Add/remove bullet points for desired changes
+2. Be specific about which state or component to modify
+3. Include new parameters or values where applicable
+4. Specify any new states or transitions needed
+5. Note any UI/UX changes required
+
+Example edit format:
+- **Section 4.3 Oscillation State**
+  - CHANGE: Circle color from red to blue
+  - ADD: Display cycle counter in corner
+  - MODIFY: Oscillation speed to 1.5Hz

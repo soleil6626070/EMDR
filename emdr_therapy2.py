@@ -6,6 +6,7 @@ import pyttsx3
 import threading
 import os
 
+
 # ===== CONFIGURATION SECTION - All adjustable parameters =====
 # Visual parameters
 CIRCLE_COLOR = (255, 0, 0)  # Red color in RGB format
