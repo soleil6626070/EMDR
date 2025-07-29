@@ -469,10 +469,11 @@ RECORDING_FORMAT = pyaudio.paInt16
 MENU_OPTION_COLOR = (200, 200, 200)  # Light grey 
 MENU_HIGHLIGHT_COLOR = (255, 255, 0)  # Highlighted option - yellow
 
-# Audio file paths
+# File paths
 AUDIO_DIR = "audio_files"
 RECORDINGS_DIR = "recordings"
 PROCESSING_RESPONSES_DIR = "processing_responses"
+TARGET_IMAGES_DIR = "target_images"
 QUESTION_AUDIO_FILES = [
     "question_1.mp3",  # "Can you describe what you saw?"
     "question_2.mp3",  # "Are there any sounds?"
@@ -506,6 +507,8 @@ CUE_IN_PROMPT = """Transform the following trauma memory responses into a gentle
 Start with: "With your eyes closed or a soft gaze in front of you, take a deep breath, and remember the..."
 
 Then convert each response from first person to second person present tense, creating a flowing narrative that guides them back to the traumatic moment. Use gentle, therapeutic language.
+
+Do not add or invent any additional details, use only the information in the user's responses.
 
 Example transformation:
 - "I remember the smell of smoke" → "You remember the smell of smoke"
@@ -903,31 +906,43 @@ def calculate_circle_position(elapsed_time):
     return int(x_position)
 
 def get_next_target_filename():
-    """Get the next available target image filename"""
+    """Get the next available target image filename in the target_images folder"""
+    # Create directory if it doesn't exist
+    os.makedirs(TARGET_IMAGES_DIR, exist_ok=True)
+    
     # Start with Target_Image_1.txt and increment until we find an unused name
     counter = 1
     while True:
-        filename = f"Target_Image_{counter}.txt"
+        filename = os.path.join(TARGET_IMAGES_DIR, f"Target_Image_{counter}.txt")
         if not os.path.exists(filename):
             return filename
         counter += 1
 
 def get_existing_target_files():
-    """Get a list of existing target image files"""
+    """Get a list of existing target image files from the target_images folder"""
+    os.makedirs(TARGET_IMAGES_DIR, exist_ok=True)
+
     files = []
-    for file in os.listdir('.'):
+    for file in os.listdir(TARGET_IMAGES_DIR):
         if file.startswith('Target_Image_') and file.endswith('.txt'):
             files.append(file)
     return sorted(files)
 
 def save_target_responses(responses):
-    """Save target image responses to a file"""
+    """Save target image responses to a file in the target_images folder"""
     filename = get_next_target_filename()
     
     try:
+        # Extract just the filename for display purposes
+        display_name = os.path.basename(filename)
+        counter = display_name.split('_')[2].split('.')[0]
+        
         with open(filename, 'w') as f:
-            f.write(f"Target Image {filename.split('_')[2].split('.')[0]}\n")
+            f.write(f"Target Image {counter}\n")
             f.write("=" * 50 + "\n\n")
+            
+            # Write timestamp
+            f.write(f"Created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
             
             # Write each response with its label
             labels = ["Visual", "Auditory", "Smell", "Physical", "Body"]
@@ -940,10 +955,16 @@ def save_target_responses(responses):
     except Exception as e:
         print(f"Error saving target image: {e}")
         return None
-
+    
 def load_target_responses(filename):
     """Load target image responses from a file"""
     try:
+        # If filename doesn't include the full path, construct it
+        if not filename.startswith(TARGET_IMAGES_DIR):
+            filepath = os.path.join(TARGET_IMAGES_DIR, filename)
+        else:
+            filepath = filename
+            
         with open(filename, 'r') as f:
             content = f.read()
         
