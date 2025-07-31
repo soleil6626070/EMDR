@@ -1,0 +1,17 @@
+[
+  {
+    "cycle": 1,
+    "response": "I'm testing to see if the microphone is recording.",
+    "timestamp": 1753932760.4282818
+  },
+  {
+    "cycle": 2,
+    "response": "More testing.",
+    "timestamp": 1753932768.2692847
+  },
+  {
+    "cycle": 3,
+    "response": "I hope this works.",
+    "timestamp": 1753932777.7437313
+  }
+]

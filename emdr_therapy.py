@@ -965,7 +965,7 @@ def load_target_responses(filename):
         else:
             filepath = filename
             
-        with open(filename, 'r') as f:
+        with open(filepath, 'r') as f:
             content = f.read()
         
         # Parse the responses
@@ -1528,6 +1528,7 @@ class EMDRProgram:
                 elif self.state == "recording" and event.key == pygame.K_SPACE:
                     # Stop recording and start transcription
                     audio_file = self.audio_recorder.stop_recording()
+                    print(f"debug: audio file returned: {audio_file}")
                     if audio_file:
                         self.state = "transcribing"
                         # Start transcription in a separate thread
