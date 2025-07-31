@@ -319,9 +319,9 @@ class TranscriptionWorker:
         }
         
     def _load_audio_without_ffmpeg(self, audio_path):
-        """Load audio file using scipy (no ffmpeg needed)"""
+        """Load audio file using scipy"""
         try:
-            # Read the wav file
+            # Read wav file
             sample_rate, audio_data = wavfile.read(audio_path)
             
             # Convert to float32 normalized between -1 and 1
@@ -563,16 +563,16 @@ class AudioRecorder:
             print("PyTorch not installed. Installing with Whisper...")
             self.has_cuda = False
         
-        # Auto-select model based on hardware if requested
+        # Auto select model based on hardware
         if whisper_model_size == "auto":
             if self.has_cuda:
                 # GPU model
                 whisper_model_size = "small"
-                print("GPU detected: Using 'base' model for good balance of speed and accuracy")
+                print(f"GPU detected: Using {whisper_model_size} model")
             else:
                 # CPU needs better model to ensure accuracy
                 whisper_model_size = "medium"
-                print("CPU only: Using 'tiny' model for faster transcription")
+                print(f"CPU only: Using {whisper_model_size} model")
         
         # Load local Whisper model
         try:
@@ -594,6 +594,44 @@ class AudioRecorder:
             print("\nFor GPU support, install PyTorch with CUDA:")
             print("Visit https://pytorch.org/get-started/locally/")
             raise ImportError("Please install openai-whisper package")
+        
+    #just putting this here one sec
+    # ok so putting this here now fixes the issue where responses
+    # during target image identification werent being transcribed
+    # to target image files
+    def _load_audio_without_ffmpeg(self, audio_path):
+        """Load audio file using scipy"""
+        try:
+            # Read wav file
+            sample_rate, audio_data = wavfile.read(audio_path)
+            
+            # Convert to float32 normalized between -1 and 1
+            if audio_data.dtype == np.int16:
+                audio_data = audio_data.astype(np.float32) / 32768.0
+            elif audio_data.dtype == np.int32:
+                audio_data = audio_data.astype(np.float32) / 2147483648.0
+            elif audio_data.dtype == np.uint8:
+                audio_data = (audio_data.astype(np.float32) - 128) / 128.0
+            
+            # Convert stereo to mono if needed
+            if len(audio_data.shape) > 1:
+                audio_data = np.mean(audio_data, axis=1)
+            
+            # Resample to 16kHz if needed (Whisper expects 16kHz)
+            if sample_rate != 16000:
+                # Calculate the resampling ratio
+                resample_ratio = 16000 / sample_rate
+                new_length = int(len(audio_data) * resample_ratio)
+                
+                # Use scipy's resample for better quality
+                audio_data = scipy.signal.resample(audio_data, new_length)
+            
+            return audio_data
+            
+        except Exception as e:
+            print(f"Error loading audio file with scipy: {e}")
+            return None
+    
         
     def start_recording(self):
         """Start recording audio"""
@@ -664,13 +702,25 @@ class AudioRecorder:
         """Transcribe audio using local Whisper model"""
         try:
             print(f"Transcribing on {'GPU' if self.has_cuda else 'CPU'}...")
+
+            # Chekc if file exists
+            if not os.path.exists(audio_file):
+                print(f"ERROR: Audio file not found: {audio_file}")
+                return ""
+            
+            audio_data = self._load_audio_without_ffmpeg(audio_file)
+
+            if audio_data is None:
+                print("Failed to load audio file with scipy")
+                return ""
+            
             
             # Transcribe with local model
             result = self.whisper_model.transcribe(
-                audio_file,
-                language="en",  # Specify English for faster processing
-                fp16=self.has_cuda,  # Use FP16 on GPU for faster processing
-                verbose=False  # Suppress progress output
+                audio_data,
+                language="en",
+                fp16=self.has_cuda,  # Use FP16 on GPU
+                verbose=False
             )
             
             transcription = result["text"].strip()
@@ -680,6 +730,8 @@ class AudioRecorder:
             
         except Exception as e:
             print(f"Transcription error: {e}")
+            import traceback
+            traceback.print_exc()
             return ""
             
     def cleanup(self):
@@ -1451,6 +1503,11 @@ class EMDRProgram:
     def handle_events(self):
         """Handle user input events"""
         for event in pygame.event.get():
+            # transcription complete event
+            if event.type == pygame.USEREVENT + 1:
+                if self.state == "transcribing":
+                    self.process_transcription_complete(event.transcription)
+                continue
             # Check for quit events
             if event.type == pygame.QUIT:
                 return False
@@ -1565,17 +1622,31 @@ class EMDRProgram:
         
     def _transcribe_audio(self, audio_file):
         """Transcribe audio in a separate thread"""
-        transcription = self.audio_recorder.transcribe_audio(audio_file)
-        
-        # Clean up audio file
         try:
-            os.remove(audio_file)
-        except:
-            pass
-            
-        # Process transcription on main thread
-        self.process_transcription_complete(transcription)
+            transcription = self.audio_recorder.transcribe_audio(audio_file)
+
         
+            # Clean up audio file
+            try:
+                os.remove(audio_file)
+            except:
+                pass
+            
+            # Process transcription on main thread
+            #self.process_transcription_complete(transcription)
+            pygame.event.post(pygame.event.Event(
+                pygame.USEREVENT + 1,
+                {'transcription': transcription}
+            ))
+        
+        except Exception as e:
+            print(f"Error in transcription thread: {e}")
+            # post empty transcription on error
+            pygame.event.post(pygame.event.Event(
+                pygame.USEREVENT + 1,
+                {'transcription': transcription}
+            ))
+
     def setup_audio_files(self):
         """Setup audio files on first run"""
         print("Setting up audio files...")
