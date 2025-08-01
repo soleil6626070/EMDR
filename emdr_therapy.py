@@ -1382,6 +1382,7 @@ class EMDRProgram:
         if elapsed_time >= OSCILLATION_DURATION:
             # Check if we need to play audio
             if not self.audio_played_for_cycle:
+                # Play audio
                 self.audio_played_for_cycle = True
                 self.audio_handler.play_audio_file(WHAT_NOTICED_AUDIO)
                 print(f"Cycle {self.current_cycle + 1}: Playing 'What did you notice?' audio")
