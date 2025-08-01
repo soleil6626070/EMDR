@@ -1355,7 +1355,6 @@ class EMDRProgram:
             self.state = "oscillating"
             self.current_cycle = 0
             self.start_time = time.time()
-            self.audio_played_for_cycle = False
             print("Starting processing after cue-in")
             
         # Draw cue-in script or waiting message
@@ -1375,26 +1374,26 @@ class EMDRProgram:
             self.draw_text("Generating cue-in script...", self.font, TEXT_COLOR, waiting_y)
             
     def handle_oscillation_state(self):
-        """Handle the oscillating circle state"""
+        """Handle the oscillating circle state & play <what did you notice> soundbite"""
         # Check if oscillation time has elapsed
         elapsed_time = time.time() - self.start_time
-    
         if elapsed_time >= OSCILLATION_DURATION:
-            # Check if we need to play audio
-            if not self.audio_played_for_cycle:
+            # Check if to play audio or record
+            if not hasattr(self, 'audio_played_for_cycle'):
                 self.audio_played_for_cycle = True
                 self.audio_handler.play_audio_file(WHAT_NOTICED_AUDIO)
-                print(f"Cycle {self.current_cycle + 1}: Playing 'What did you notice?' audio")
-        
-            # Check if audio finished playing, then auto-start recording
+                print(f"Cycle {self.current_cycle + 1}: Oscillation complete; playing audio")
+            
             elif not self.audio_handler.is_audio_playing():
                 self.state = "processing_recording"
                 self.audio_recorder.start_recording()
-                self.audio_played_for_cycle = False  # Reset for next cycle
-                print(f"Auto-started recording for cycle {self.current_cycle + 1}")
+                self.audio_played_for_cycle = False     # reset for next cycle
+                print(f"Recording started automatically for cycle {self.current_cycle + 1}")
+
         else:
-            # Continue oscillating - draw the circle
+            # Continue oscillating
             self.draw_circle()
+    
             
     def handle_waiting_state(self):
         """skipping this step"""
@@ -1466,7 +1465,6 @@ class EMDRProgram:
                 # Start next cycle
                 self.state = "oscillating"
                 self.start_time = time.time()
-                self.audio_played_for_cycle = False
                 print(f"Starting cycle {self.current_cycle + 1}")
         else:
             # Continue fading - calculate alpha value

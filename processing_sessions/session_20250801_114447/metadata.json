@@ -1,0 +1,13 @@
+{
+  "session_id": "session_20250801_114447",
+  "created": "20250801_114447",
+  "status": "active",
+  "audio_files": {
+    "1": {
+      "filename": "cycle_1_audio.wav",
+      "status": "transcribed",
+      "created": 1754045100.0461476,
+      "transcribed_at": 1754045100.980615
+    }
+  }
+}
