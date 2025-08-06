@@ -1083,7 +1083,7 @@ class EMDRProgram:
         
         # Initialize program state - start with menu
         self.current_cycle = 0
-        self.state = "menu"  # States: menu, target_identification, recording, transcribing, target_selection, cue_in, oscillating, waiting, processing_recording, feedback, fading
+        self.state = "menu"  #States: menu, target_identification, recording, transcribing, target_selection, cue_in_generate, cue_in_review, cue_in_audio, oscillating, waiting, processing_recording, feedback, fading
         self.start_time = time.time()
         self.feedback_start_time = 0
         self.fade_start_time = 0
@@ -1104,7 +1104,10 @@ class EMDRProgram:
         # Cue-in state variables
         self.cue_in_script = ""
         self.cue_in_generated = False
-        
+        # cue_in_states Branch
+        self.cue_in_script_file = None
+        self.cue_in_audio_generated = False
+
         # Processing session variables
         self.session_manager = ProcessingSessionManager()
         self.current_session_id = None
@@ -1325,55 +1328,193 @@ class EMDRProgram:
     def handle_target_selection_state(self):
         """Handle the target selection state"""
         self.draw_target_selection()
+
+    # cue_in_states branch edits #1
+    def save_cue_in_script(script, target_filename):
+        """Save cue-in script to a file for editing before audio is generated"""
+        # Create cue in script folder
+        cue_scripts_dir = "cue_in_scripts"
+        os.makedirs(cue_scripts_dir, exist_ok=True)
+
+        # Extract target number from filename
+        target_num = target_filename.split('_')[2].split('.')[0]
+        script_filename = os.path.join(cue_scripts_dir, f"Cue_In_Script_{target_num}.txt")
+
+        try:
+            with open(script_filename, 'w') as f:
+                f.write(f"Cue-In Script for {target_filename}\n")
+                f.write("=" * 50 + "\n\n")
+                f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+                f.write("Script:\n")
+                f.write("-" * 20 + "\n")
+                f.write(script)
+            
+            print(f"Cue in script saved to: {script_filename}")
+            return script_filename
         
-    def handle_cue_in_state(self):
-        """Handle the cue-in state"""
-        # Generate cue-in script if not already done
+        except Exception as e:
+            print(f"Error saving cue in script: {e}")
+            return None
+        
+    # cue_in_states branch edits #2
+    def load_cue_in_script(script_filename):
+        """Load cue in script from file"""
+        try:
+            with open(script_filename, 'r') as f:
+                content = f.read()
+            
+            # Extract script part after metadata
+            script_start = content.find("Script:\n" + "-" * 20 + "\n")     # find this, returns -1 if it cant
+            if script_start != -1:
+                script_start += len("Script:\n" + "-" * 20 + "\n")
+                script = content[script_start:].strip()
+                return script
+        except Exception as e:
+            print(f"Error loading cue in script: {e}")
+            return ""
+    
+    # cue_in_states branch edits #3
+    def handle_cue_in_generate_state(self):
+        """Handle the cue in script generation state"""
         if not self.cue_in_generated:
             # Load selected target file
             if self.target_files and self.selected_target < len(self.target_files):
                 filename = self.target_files[self.selected_target]
                 responses = load_target_responses(filename)
-                
+            
                 if responses:
                     # Generate cue-in script
                     self.cue_in_script = self.llm_handler.generate_cue_in_script(responses)
+                
+                    # Save script to file for editing
+                    self.cue_in_script_file = save_cue_in_script(self.cue_in_script, filename)
+                
+                    if self.cue_in_script_file:
+                        self.cue_in_generated = True
+                        print(f"Cue-in script generated and saved to: {self.cue_in_script_file}")
                     
-                    # Generate audio for cue-in script
-                    cue_in_path = os.path.join(AUDIO_DIR, CUE_IN_AUDIO)
-                    if self.audio_handler.generate_elevenlabs_audio(self.cue_in_script, cue_in_path):
-                        # Play the cue-in audio
-                        self.audio_handler.play_audio_file(CUE_IN_AUDIO)
-                        self.cue_in_generated = True
-                    else:
-                        # If audio generation fails, show text
-                        self.cue_in_generated = True
-                        
+        # Draw generation status
+        if self.cue_in_generated:
+            # Script generated, show instructions
+            title_y = self.screen_height // 2 - 100
+            self.draw_text("Cue-In Script Generated", self.font, TEXT_COLOR, title_y)
+        
+            instruction1_y = self.screen_height // 2 - 20
+            instruction2_y = self.screen_height // 2 + 20
+            instruction3_y = self.screen_height // 2 + 60
+        
+            self.draw_text(f"Script saved to: {os.path.basename(self.cue_in_script_file)}", 
+                        self.small_font, TEXT_COLOR, instruction1_y)
+            self.draw_text("Edit the script file if needed, then:", 
+                        self.small_font, TEXT_COLOR, instruction2_y)
+            self.draw_text("Press SPACEBAR to continue with audio generation", 
+                        self.small_font, (255, 255, 0), instruction3_y)
+        else:
+            # Still generating
+            waiting_y = self.screen_height // 2
+            self.draw_text("Generating cue-in script...", self.font, TEXT_COLOR, waiting_y)
+        
+            # Add loading dots
+            loading_y = self.screen_height // 2 + 50
+            dots = "." * ((int(time.time() * 2) % 4))
+            self.draw_text(dots, self.font, TEXT_COLOR, loading_y)
+
+    # cue_in_states branch edit #4
+    def handle_cue_in_review_state(self):
+        """Handle the cue-in script review state"""
+        # Load the (possibly edited) script from file
+        if hasattr(self, 'cue_in_script_file') and os.path.exists(self.cue_in_script_file):
+            edited_script = load_cue_in_script(self.cue_in_script_file)
+        
+            # Display the script for review
+            title_y = self.screen_height // 2 - 150
+            self.draw_text("Review Cue-In Script", self.font, TEXT_COLOR, title_y)
+        
+            # Show first few lines of the script
+            lines = edited_script.split('\n')[:4]  # Show first 4 lines
+            start_y = self.screen_height // 2 - 80
+            for i, line in enumerate(lines):
+                if line.strip():
+                # Truncate long lines for display
+                    display_line = line.strip()
+                    if len(display_line) > 60:
+                        display_line = display_line[:57] + "..."
+                    self.draw_text(display_line, self.small_font, TEXT_COLOR, start_y + i * 25)
+        
+            # Show instructions
+            instruction1_y = self.screen_height // 2 + 50
+            instruction2_y = self.screen_height // 2 + 80
+            instruction3_y = self.screen_height // 2 + 110
+        
+            self.draw_text("Press SPACEBAR to generate audio and continue", 
+                        self.small_font, (255, 255, 0), instruction1_y)
+            self.draw_text("Press E to edit the script file again", 
+                        self.small_font, TEXT_COLOR, instruction2_y)
+            self.draw_text("Press ESC to return to menu", 
+                        self.small_font, TEXT_COLOR, instruction3_y)
+        else:
+            error_y = self.screen_height // 2
+            self.draw_text("Error: Could not load cue-in script file", self.font, (255, 0, 0), error_y)
+
+    def handle_cue_in_audio_state(self):
+        """Handle the cue-in audio generation and playback state"""
+        if not hasattr(self, 'cue_in_audio_generated'):
+            self.cue_in_audio_generated = False
+    
+        if not self.cue_in_audio_generated:
+            # Load the final script and generate audio
+            if hasattr(self, 'cue_in_script_file') and os.path.exists(self.cue_in_script_file):
+                final_script = load_cue_in_script(self.cue_in_script_file)
+            
+                # Generate audio for the final script
+                cue_in_path = os.path.join(AUDIO_DIR, CUE_IN_AUDIO)
+                if self.audio_handler.generate_elevenlabs_audio(final_script, cue_in_path):
+                    # Play the cue-in audio
+                    self.audio_handler.play_audio_file(CUE_IN_AUDIO)
+                    self.cue_in_audio_generated = True
+                    self.cue_in_script = final_script  # Update the script variable
+                    print("Cue-in audio generated and playing")
+                else:
+                    # If audio generation fails, show error
+                    error_y = self.screen_height // 2
+                    self.draw_text("Error generating audio. Press ESC to return.", 
+                                self.font, (255, 0, 0), error_y)
+                    return
+            else:
+                error_y = self.screen_height // 2
+                self.draw_text("Error: Script file not found", self.font, (255, 0, 0), error_y)
+                return
+    
         # Check if audio has finished playing
-        elif not self.audio_handler.is_audio_playing():
-            # Cue-in complete, start processing
+        if self.cue_in_audio_generated and not self.audio_handler.is_audio_playing():
+            # Audio complete, start processing
             self.state = "oscillating"
             self.current_cycle = 0
             self.start_time = time.time()
             self.audio_played_for_cycle = False
+            # Reset audio generation flag for next session
+            self.cue_in_audio_generated = False
             print("Starting processing after cue-in")
-            
-        # Draw cue-in script or waiting message
-        if self.cue_in_script:
-            # Show first few lines of the script
-            lines = self.cue_in_script.split('\n')[:3]  # Show first 3 lines
-            start_y = self.screen_height // 2 - 50
-            for i, line in enumerate(lines):
-                if line.strip():
-                    self.draw_text(line.strip(), self.small_font, TEXT_COLOR, start_y + i * 30)
+            return
+        
+        # Draw cue-in script or status
+        if self.cue_in_audio_generated:
+            if hasattr(self, 'cue_in_script') and self.cue_in_script:
+                # Show first few lines of the script
+                lines = self.cue_in_script.split('\n')[:3]  # Show first 3 lines
+                start_y = self.screen_height // 2 - 50
+                for i, line in enumerate(lines):
+                    if line.strip():
+                        self.draw_text(line.strip(), self.small_font, TEXT_COLOR, start_y + i * 30)
                     
-            if self.audio_handler.is_audio_playing():
-                status_y = self.screen_height // 2 + 100
-                self.draw_text("Please listen and follow along...", self.small_font, TEXT_COLOR, status_y)
+                if self.audio_handler.is_audio_playing():
+                    status_y = self.screen_height // 2 + 100
+                    self.draw_text("Please listen and follow along...", self.small_font, TEXT_COLOR, status_y)
         else:
             waiting_y = self.screen_height // 2
-            self.draw_text("Generating cue-in script...", self.font, TEXT_COLOR, waiting_y)
-            
+            self.draw_text("Generating cue-in audio...", self.font, TEXT_COLOR, waiting_y)
+
+
     def handle_oscillation_state(self):
         """Handle the oscillating circle state"""
         # Check if oscillation time has elapsed
@@ -1587,10 +1728,42 @@ class EMDRProgram:
                             print(f"Created new session: {self.current_session_id}")
                             
                             # Start cue-in process
-                            self.state = "cue_in"
+                            self.state = "cue_in_generate"      # cue_in -> cue_in_generate
                             self.cue_in_generated = False
                             self.cue_in_script = ""
                             print(f"Selected target: {self.target_files[self.selected_target]}")
+                
+                # Handle cue-in generation
+                elif self.state == "cue_in_generate":
+                    if event.key == pygame.K_SPACE and self.cue_in_generated:
+                        # Move to review state
+                        self.state = "cue_in_review"
+                        print("Moving to cue in script review")
+
+                # Handle cue-in review  
+                elif self.state == "cue_in_review":
+                    if event.key == pygame.K_SPACE:
+                        # Move to audio generation
+                        self.state = "cue_in_audio"
+                        print("Generating cue-in audio")
+                    elif event.key == pygame.K_e:
+                        # Open script file for editing (this will depend on your OS)
+                        if hasattr(self, 'cue_in_script_file'):
+                            print(f"Please edit the file: {self.cue_in_script_file}")
+                            print("Then press SPACEBAR to continue")
+                            # Optionally, try to open the file with the default editor:
+                            try:
+                                import subprocess
+                                import platform
+                                if platform.system() == "Windows":
+                                    subprocess.run(["notepad", self.cue_in_script_file])
+                                elif platform.system() == "Darwin":  # macOS
+                                    subprocess.run(["open", "-t", self.cue_in_script_file])
+                                else:  # Linux
+                                    subprocess.run(["xdg-open", self.cue_in_script_file])
+                            except Exception as e:
+                                print(f"Could not auto-open editor. Please manually edit: {self.cue_in_script_file}")
+
                             
                 # Handle recording stop
                 elif self.state == "recording" and event.key == pygame.K_SPACE:
@@ -1696,6 +1869,12 @@ class EMDRProgram:
                 self.handle_transcribing_state()
             elif self.state == "target_selection":
                 self.handle_target_selection_state()
+            elif self.state == "cue_in_generate":
+                self.handle_cue_in_generate_state()
+            elif self.state == "cue_in_review":
+                self.handle_cue_in_review_state()
+            elif self.state == "cue_in_audio":
+                self.handle_cue_in_audio_state()
             elif self.state == "cue_in":
                 self.handle_cue_in_state()
             elif self.state == "oscillating":
