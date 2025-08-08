@@ -425,7 +425,7 @@ class TranscriptionWorker:
 # API Keys 
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPEN_AI_API_EMDR_KEY')
-ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_EMDR_KEY_5k')
+ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_EMDR_KEY')
 # ANTHROPIC_API_KEY = ""  
 
 # ElevenLabs settings
@@ -1047,6 +1047,51 @@ def load_target_responses(filename):
     except Exception as e:
         print(f"Error loading target responses: {e}")
         return []
+    
+# cue_in_states branch edits #1
+def save_cue_in_script(script, target_filename):
+    """Save cue-in script to a file for editing before audio is generated"""
+    # Create cue in script folder
+    cue_scripts_dir = "cue_in_scripts"
+    os.makedirs(cue_scripts_dir, exist_ok=True)
+
+    # Extract target number from filename
+    target_num = target_filename.split('_')[2].split('.')[0]
+    script_filename = os.path.join(cue_scripts_dir, f"Cue_In_Script_{target_num}.txt")
+
+    try:
+        with open(script_filename, 'w') as f:
+            f.write(f"Cue-In Script for {target_filename}\n")
+            f.write("=" * 50 + "\n\n")
+            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            f.write("Script:\n")
+            f.write("-" * 20 + "\n")
+            f.write(script)
+            
+        print(f"Cue in script saved to: {script_filename}")
+        return script_filename
+        
+    except Exception as e:
+        print(f"Error saving cue in script: {e}")
+        return None
+        
+# cue_in_states branch edits #2
+def load_cue_in_script(script_filename):
+    """Load cue in script from file"""
+    try:
+        with open(script_filename, 'r') as f:
+            content = f.read()
+            
+        # Extract script part after metadata
+        script_start = content.find("Script:\n" + "-" * 20 + "\n")     # find this, returns -1 if it cant
+        if script_start != -1:
+            script_start += len("Script:\n" + "-" * 20 + "\n")
+            script = content[script_start:].strip()
+            return script
+        
+    except Exception as e:
+        print(f"Error loading cue in script: {e}")
+        return ""
 
 # ===== MAIN PROGRAM CLASS =====
 class EMDRProgram:
@@ -1329,49 +1374,6 @@ class EMDRProgram:
         """Handle the target selection state"""
         self.draw_target_selection()
 
-    # cue_in_states branch edits #1
-    def save_cue_in_script(script, target_filename):
-        """Save cue-in script to a file for editing before audio is generated"""
-        # Create cue in script folder
-        cue_scripts_dir = "cue_in_scripts"
-        os.makedirs(cue_scripts_dir, exist_ok=True)
-
-        # Extract target number from filename
-        target_num = target_filename.split('_')[2].split('.')[0]
-        script_filename = os.path.join(cue_scripts_dir, f"Cue_In_Script_{target_num}.txt")
-
-        try:
-            with open(script_filename, 'w') as f:
-                f.write(f"Cue-In Script for {target_filename}\n")
-                f.write("=" * 50 + "\n\n")
-                f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-                f.write("Script:\n")
-                f.write("-" * 20 + "\n")
-                f.write(script)
-            
-            print(f"Cue in script saved to: {script_filename}")
-            return script_filename
-        
-        except Exception as e:
-            print(f"Error saving cue in script: {e}")
-            return None
-        
-    # cue_in_states branch edits #2
-    def load_cue_in_script(script_filename):
-        """Load cue in script from file"""
-        try:
-            with open(script_filename, 'r') as f:
-                content = f.read()
-            
-            # Extract script part after metadata
-            script_start = content.find("Script:\n" + "-" * 20 + "\n")     # find this, returns -1 if it cant
-            if script_start != -1:
-                script_start += len("Script:\n" + "-" * 20 + "\n")
-                script = content[script_start:].strip()
-                return script
-        except Exception as e:
-            print(f"Error loading cue in script: {e}")
-            return ""
     
     # cue_in_states branch edits #3
     def handle_cue_in_generate_state(self):
@@ -1892,7 +1894,7 @@ class EMDRProgram:
             pygame.display.flip()
             
             # Control frame rate (60 FPS for smooth animation)
-            self.clock.tick(60)
+            self.clock.tick(180)
             
         # Clean up
         self.transcription_worker.stop()
